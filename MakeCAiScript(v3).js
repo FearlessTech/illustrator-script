@@ -26,10 +26,16 @@
 // -create new line segment, connected at Path Start, length of SegmentLength in mm, angled directly away from CENTER.
 // -create new line segment, connected at Path END, length of SegmentLength in mm, angled directly away from CENTER.
 
+// Step 5...
+// List of colors appears off artboard of every color, strokes and fills..
+
+// Step 6...
+// 1) Rotate one segment 5 degrees...
+// 2) Then rotate other segment -5 degrees.
+// 3) Make sure lines are crossing, not diverging.
+
 // Step 5
 // -Display message: "OPEN Die lines layer created.  Please check it carefully BEFORE saving."
-
-
 
 (function(){
 	var myDoc = app.activeDocument;
@@ -76,11 +82,6 @@
 	var s_Paths = activeLayer.pathItems;
 
 	// is it in a shape?
-	var cclr = new CMYKColor();
-		cclr.cyan = 0;
-		cclr.magenta = 100;
-		cclr.yellow = 100;
-		cclr.black = 0;
 	var cc_Ary = calcContainableFuncs(s_Paths);
 
 	// draw the segment SegmentLength = 1 mm
@@ -90,7 +91,7 @@
 	var sp1 = segment.pathPoints.add();
 	sp1.anchor = sp1.rightDirection = sp1.leftDirection = [0,0];
 	var sp2 = segment.pathPoints.add();
-	sp2.anchor = sp2.rightDirection = sp2.leftDirection = [10, 0];
+	sp2.anchor = sp2.rightDirection = sp2.leftDirection = [7, 0];
 
 	for(var i = s_Paths.length - 1; i >= 0; i--){
 		var s_op = s_Paths[i];
@@ -124,18 +125,16 @@
 		    if(isContained){
 			    if(c_xy[0] > f_pos[0] && c_xy[1] > f_pos[1])
 			    	s_path.translate(s_path.width*-1, s_path.height*-1);
-			    if(c_xy[0] > f_pos[0] && c_xy[1] < f_pos[1])
+			    else if(c_xy[0] > f_pos[0] && c_xy[1] < f_pos[1])
 			    	s_path.translate(s_path.width*-1, s_path.height);
-			    if(c_xy[0] < f_pos[0] && c_xy[1] < f_pos[1])
+			    else if(c_xy[0] < f_pos[0] && c_xy[1] < f_pos[1])
 			    	s_path.translate(s_path.width, s_path.height);
+			    else if(c_xy[0] > f_pos[0] && c_xy[1] == f_pos[1])
+			    	s_path.translate(s_path.width*-1, 0);
+			    else if(c_xy[0] == f_pos[0] && c_xy[1] < f_pos[1])
+			    	s_path.translate(0, s_path.height);
 		    } else {
-		    	if(c_xy[0] > f_pos[0] && c_xy[1] > f_pos[1])
-		    		s_path.translate(0, s_path.height);
-		    	if(c_xy[0] > f_pos[0] && c_xy[1] < f_pos[1])
-			    	s_path.translate(0, 0);
-			    if(c_xy[0] < f_pos[0] && c_xy[1] < f_pos[1])
-			    	s_path.translate(0, 0);
-			    if(c_xy[0] < f_pos[0] && c_xy[1] > f_pos[1])
+			    if(c_xy[0] <= f_pos[0] && c_xy[1] >= f_pos[1])
 			    	s_path.translate(s_path.width*-1, s_path.height);
 		    }
 		    
@@ -143,8 +142,8 @@
 		    s_path.strokeColor = s_op.strokeColor;
 
 		    // connected at Path Start, angled directly away from CENTER
-		    sg_points = s_path.pathPoints;
-		    overlayPoints(s_op, sg_points);
+		 	sg_points = s_path.pathPoints;
+			overlayPoints(s_op, sg_points, activeLayer, isContained);
 
 			s_path.remove();
 			s_op.remove();
@@ -152,6 +151,9 @@
 	}
 	segment.remove();
 	tempLayer.remove();
+	
+	// step 5:
+	displayColorOfPath(s_Paths, activeLayer);
 
 	alert("OPEN Die lines layer created.  Please check it carefully BEFORE saving.");
 })()
@@ -341,6 +343,11 @@ function calcContainableFuncs(_pathes){
 	}
 
 	function testContained(container, checkme){
+		var cclr = new CMYKColor();
+			cclr.cyan = 0;
+			cclr.magenta = 100;
+			cclr.yellow = 100;
+			cclr.black = 0;
 		// var m = doc.pathItems.getByName('mycir'); // my circle
 		// var mp = doc.pathItems.getByName('mypth'); // my test path
 		var pts = getPathPoints(container);
@@ -349,34 +356,34 @@ function calcContainableFuncs(_pathes){
 		return chkRes;
 	}
 
-	// relationshipAry
-	var relationshipAry = {};
+	// ccAry
+	var ccAry = {};
 	for (var i = _pathes.length - 1; i >= 0; i--) {
 		var container = _pathes[i];
-		if(relationshipAry['cc_'+i] > -1) continue;
-		relationshipAry['cc_'+i] = 1;
-
+		if(ccAry['cc_'+i] > -1) continue;
+		ccAry['cc_'+i] = 1;
+		container.rotate('0.01', true, true, true, true, Transformation.LEFT);
 		for (var j = 0; j < _pathes.length; j++) {
 			var checkme = _pathes[j];
-			// alert(testContained(container, checkme));
 			if(testContained(container, checkme)) {
-				relationshipAry['cc_'+i] = 1;
-				relationshipAry['cc_'+j] = 0;
+				// alert('cc_'+j);
+				ccAry['cc_'+j] = 0;
 			}
 		}
+		container.rotate('-0.01', true, true, true, true, Transformation.LEFT);
 	}
 
-	return relationshipAry;
+	return ccAry;
 }
 
 // distance of two positions 
 function dist2(p1, p2) {
   return Math.pow(p1[0] - p2[0], 2)
-       + Math.pow(p1[1] - p2[1], 2);
+         + Math.pow(p1[1] - p2[1], 2);
 }
 
 // re-arrange the point and redraw from re-points
-function overlayPoints(path, sg_points){
+function overlayPoints(path, sg_points, activeLayer, inoutFlag){
     var pts = path.pathPoints,
     	tmpancs = [],
     	tmpancsPp = [],
@@ -385,24 +392,26 @@ function overlayPoints(path, sg_points){
 		minDist = 0.15,
 		minFlag = true,
 		stopFlag = false,
-		startPos = sg_points[0].anchor,
+		startPos = sg_points[0],
 		secondPos = 0;
 
-    for(var k=pts.length - 1; k >= 0; k--) {
-    	if(dist2(secondPos, pts[k].anchor) < minDist) {
-    		stopFlag = true;
-    	}
-    	if(stopFlag) continue;
+    for(var k = 0; k < pts.length; k++) {
+    	// if(secondPos!=0 && dist2(secondPos.anchor, pts[k].anchor) < minDist) {
+    	// 	stopFlag = true;
+    	// 	ancs.push(pts[k].anchor);
+    	// 	ancsPp.push(pts[k]);
+    	// }
+    	// if(stopFlag) continue;
     	
-    	// alert(dist2(sg_points[0].anchor, pts[k].anchor));
     	if(dist2(sg_points[0].anchor, pts[k].anchor) < minDist && minFlag){
     		minFlag = false;
-    		startPos = sg_points[1].anchor;
-    		secondPos = pts[k].anchor;
-    	} else if(dist2(sg_points[1].anchor, pts[k].anchor) < minDist && minFlag) {
+    		startPos = sg_points[1];
+    		secondPos = pts[k];
+    	} 
+    	if(dist2(sg_points[1].anchor, pts[k].anchor) < minDist && minFlag) {
     		minFlag = false;
-    		startPos = sg_points[0].anchor;
-    		secondPos = pts[k].anchor;
+    		startPos = sg_points[0];
+    		secondPos = pts[k];
     	}
     	if(secondPos!=0){
     		ancs.push(pts[k].anchor);
@@ -416,37 +425,79 @@ function overlayPoints(path, sg_points){
     ancsPp = ancsPp.concat(tmpancsPp);
 	ancs.push(ancs[0]);
 	ancsPp.push(ancsPp[0]);
-    // alert(ancs[0] + "  last:" + ancs[ancs.length-1]);
 
-    ancsPp.unshift(1);
-    ancsPp.push(1);
-    ancs.unshift(startPos);
-    ancs.push(startPos);
+	var s_e_posAry = getStartAndEndPos(activeLayer, secondPos.anchor, startPos.anchor);
+
+	var standardP, stInd;	
+	var tempPos = [];
+	standardP = ancsPp[0].rightDirection;
+	if(dist2(standardP, s_e_posAry[0].anchor) > dist2(standardP, s_e_posAry[1].anchor)){
+	    tempPos['R'] = [0, dist2(standardP, s_e_posAry[0].anchor).toFixed(1)];
+	} else {
+		tempPos['R'] = [1, dist2(standardP, s_e_posAry[1].anchor).toFixed(1)];
+	}
+	standardP = ancsPp[0].leftDirection;
+	if(dist2(standardP, s_e_posAry[0].anchor) > dist2(standardP, s_e_posAry[1].anchor)){
+		tempPos['L'] = [0, dist2(standardP, s_e_posAry[0].anchor).toFixed(1)];
+	} else {
+		tempPos['L'] = [1, dist2(standardP, s_e_posAry[1].anchor).toFixed(1)];
+	}
+	// alert(tempPos['L'][1]+" === "+tempPos['R'][1]);
+	if(tempPos['L'][1] > tempPos['R'][1]){
+		stInd = tempPos['L'][0];
+	} else if(tempPos['L'][1] == tempPos['R'][1]){
+		standardP = ancsPp[1].anchor;
+		if(dist2(standardP, s_e_posAry[0].anchor) > dist2(standardP, s_e_posAry[1].anchor))
+			stInd = 0
+		else stInd = 1;
+	} else {
+		stInd = tempPos['R'][0];
+	}
+	var enInd = stInd?0:1;
+	ancsPp.unshift(s_e_posAry[stInd]);
+    ancsPp.push(s_e_posAry[enInd]);
+    ancs.unshift(s_e_posAry[stInd].anchor);
+    ancs.push(s_e_posAry[enInd].anchor);
 
     var dppath = path.duplicate();
     dppath.closed = false;
     dppath.setEntirePath(ancs);
 
     var dpPoint = dppath.pathPoints;
-    for (var k = 0; k < dpPoint.length; k++) {
-        if(k==dpPoint.length - 1 || k==0) {
-	        dpPoint[k].rightDirection = startPos;
-	        dpPoint[k].leftDirection  = startPos;
-	        dpPoint[k].pointType      = PointType.CORNER;;	
-        } else if(k==1){
-        	dpPoint[k].rightDirection = ancsPp[k].leftDirection;
-	        dpPoint[k].leftDirection  = secondPos;
+    for (var k = 0; k < dpPoint.length-1; k++) {
+        if(k == dpPoint.length - 2) {
+        	if(secondPos.anchor) dpPoint[k].rightDirection = secondPos.anchor;
+	        dpPoint[k].leftDirection  = ancsPp[k].leftDirection;
 	        dpPoint[k].pointType      = ancsPp[k].pointType;
-        } else if(k==dpPoint.length-2){
-	        dpPoint[k].rightDirection = secondPos;
-	        dpPoint[k].leftDirection  = ancsPp[k].rightDirection;
+        } else if(k == 1){
+        	dpPoint[k].rightDirection = ancsPp[k].rightDirection;
+	        if(secondPos.anchor) dpPoint[k].leftDirection  = secondPos.anchor;
 	        dpPoint[k].pointType      = ancsPp[k].pointType;
         } else {
-	        dpPoint[k].rightDirection = ancsPp[k].leftDirection;
-	        dpPoint[k].leftDirection  = ancsPp[k].rightDirection;
+	        dpPoint[k].rightDirection = ancsPp[k].rightDirection;
+	        dpPoint[k].leftDirection  = ancsPp[k].leftDirection;
 	        dpPoint[k].pointType      = ancsPp[k].pointType;
         }
     }
+}
+
+// calculate the start and end pos by 5 degrees
+function getStartAndEndPos(myDoc, o_s_pos, o_e_pos){
+	var myLine = myDoc.pathItems.add();
+	myLine.setEntirePath([o_s_pos, o_e_pos]);
+
+	var d5ch1 = myLine.duplicate();
+	d5ch1.rotate(10, true, true, true, true, Transformation.CENTER);
+	var d5ch2 = myLine.duplicate();
+	d5ch2.rotate(-10, true, true, true, true, Transformation.CENTER);
+
+	var firstPosOfPath = d5ch1.pathPoints[1];
+	var endPosOfPath = d5ch2.pathPoints[1];
+	myLine.remove();
+	d5ch1.remove();
+	d5ch2.remove();
+
+	return [firstPosOfPath, endPosOfPath];
 }
 
 // check
@@ -455,10 +506,10 @@ function checkClosedPath(pathes){
 	var errFlag = false;
 	for(var i = pathes.length - 1; i >= 0; i--){
 	    var op = pathes[i];
-				// op.closed = true;
-				// op.filled = true;
-				// op.stroked = true;
-	    if(!op.closed || !op.filled) {
+		// op.closed = true;
+		// op.filled = true;
+		// op.stroked = true;
+	    if(!op.closed || op.filled) {
           errFlag = true;
           op.strokeColor = makeColor(255,0,0);
           continue;
@@ -506,9 +557,14 @@ function checkSameColor(pathes){
 
 	for(var i = pathes.length - 1; i >= 0; i--){
 	    var op = pathes[i];
-	    var colorSel = getColor(op); 
-	    clrAry[i] = colorSel;
-	    var clrName = getColorName(colorSel);
+	    if(op.stroked && op.strokeColor.spot){
+	    	clrAry[i] = op.strokeColor.spot.name;
+		    var clrName = op.strokeColor.spot.name;
+	    } else {
+		    var colorSel = getColor(op); 
+		    clrAry[i] = colorSel;
+		    var clrName = getColorName(colorSel);
+	    }
 	    clrObj[clrName] = clrObj[clrName]?clrObj[clrName]+1:1;
 	}
 	var mc = 0;
@@ -521,8 +577,13 @@ function checkSameColor(pathes){
 	}
 	for(var i = pathes.length - 1; i >= 0; i--){
 		var op = pathes[i];
-	    var colorSel = getColor(op); 
-		if(maxClr != getColorName(colorSel)) {
+		if(op.stroked && op.strokeColor.spot){
+		    var clrName = op.strokeColor.spot.name;
+	    } else {
+	    	var colorSel = getColor(op); 
+		    var clrName = getColorName(colorSel);
+	    }
+		if(maxClr != clrName) {
           	errFlag = true;
 			op.strokeColor = makeColor(255,0,0);
 		}
@@ -534,13 +595,6 @@ function checkSameColor(pathes){
 // defined unique color name
 function getColorName(clr){
 	return "c_"+(clr.cyan).toFixed(2)+"_m_"+(clr.magenta).toFixed(2)+"_y_"+(clr.yellow).toFixed(2)+"_b_"+(clr.black).toFixed(2);
-}
-
-// compare color
-function compareColor(clr1, clr2){
-	if(clr1.cyan==clr2.cyan && clr1.magenta==clr2.magenta && clr1.yellow==clr2.yellow && clr1.black==clr2.black){
-		return true;
-	} else return false;
 }
 
 // get color
@@ -560,6 +614,44 @@ function makeColor(r,g,b){
     testColor.green = g;
     testColor.blue = b;
     return testColor;
+}
+
+// display the colors of selected paths
+function displayColorOfPath(pathes, activeLayer){
+	var obj = pathes[pathes.length-1];
+	var maxLeftPos = 0;
+	var maxTopPos = Math.pow(10,5) *-1;
+	for(var i = 0; i < pathes.length; i++){
+		var p = pathes[i].geometricBounds;
+		if(maxLeftPos < p[2]) maxLeftPos = p[2]
+		if(maxTopPos < p[1]) maxTopPos = p[1]
+	}
+	if(obj.stroked && obj.strokeColor.spot){
+	    var clrName = obj.strokeColor;
+		drawColorName(activeLayer, clrName,maxTopPos,maxLeftPos,clrName,"type1");
+		// itext.strokeColor.spot.name = clrName;
+    } else {
+	    var colorSel = getColor(obj);
+	    var clrName = "CMYB("+(colorSel.cyan).toFixed(1) +", "
+				+ (colorSel.magenta).toFixed(1) +", "
+				+ (colorSel.yellow).toFixed(1) +", " 
+				+ (colorSel.black).toFixed(1)+")";
+		drawColorName(activeLayer, clrName,maxTopPos,maxLeftPos,colorSel,"type2");
+    }
+}
+function drawColorName(activeLayer,cName,mt,ml,colorSel, type) {
+    var itext = activeLayer.textFrames.add();
+	var rect = activeLayer.pathItems.rectangle (mt, ml+8, 10, 10);
+		rect.strokeColor = rect.fillColor = colorSel;
+ 	if(type == "type1"){
+ 		cName = colorSel.spot.name;
+ 	}
+	itext.contents = cName;
+	itext.textRange.characterAttributes.fillColor = colorSel;
+	itext.top = mt;
+	itext.left = ml + 20; 
+	itext.stroked = false;
+	itext.filled = false;
 }
 
 // ------------------------------------------------
@@ -602,7 +694,6 @@ function extractPathes(s, pp_length_limit, pathes){
 function distanceFromPointToPoint (A, B)
 {
 /*  since we only need to know what point is furthest, the squared result is okay as well */
-
 /*  return Math.sqrt ( ((A[0]-B[0]) * (A[0]-B[0])) + ((A[1]-B[1]) * (A[1]-B[1])) ); */
 
     return ((A[0]-B[0]) * (A[0]-B[0])) + ((A[1]-B[1]) * (A[1]-B[1]));
